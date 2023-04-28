@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	klog "k8s.io/klog/v2"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework"
 
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
@@ -335,27 +336,34 @@ func (ng *nodegroup) GetOptions(defaults config.NodeGroupAutoscalingOptions) (*c
 func newNodeGroupFromScalableResource(controller *machineController, unstructuredScalableResource *unstructured.Unstructured) (*nodegroup, error) {
 	// Ensure that the resulting node group would be allowed based on the autodiscovery specs if defined
 	if !controller.allowedByAutoDiscoverySpecs(unstructuredScalableResource) {
+		klog.V(4).Infof("autodisovery was not satisfied for: %v", *unstructuredScalableResource)
 		return nil, nil
 	}
 
 	scalableResource, err := newUnstructuredScalableResource(controller, unstructuredScalableResource)
 	if err != nil {
+		klog.V(4).Infof(" newUnstructuredScalableResource() err: %v", err)
 		return nil, err
 	}
 
 	replicas, found, err := unstructured.NestedInt64(unstructuredScalableResource.UnstructuredContent(), "spec", "replicas")
 	if err != nil {
+		klog.V(4).Infof("unstructured.NestedInt64(unstructuredScalableResource.UnstructuredContent()... err: %v", err)
 		return nil, err
 	}
+
+	klog.V(4).Infof("found: %v, replicas: %v, scalableResource.CanScaleFromZero(): %v, scalableResource.MaxSize()-scalableResource.MinSize(): %v, scalableResource: %v", found, replicas, scalableResource.CanScaleFromZero(), scalableResource.MaxSize()-scalableResource.MinSize(), *scalableResource)
 
 	// Ensure that if the nodegroup has 0 replicas it is capable
 	// of scaling before adding it.
 	if found && replicas == 0 && !scalableResource.CanScaleFromZero() {
+		klog.V(4).Infof("result of 'found && replicas == 0 && !scalableResource.CanScaleFromZero()' was nil for %v", unstructuredScalableResource.GetName())
 		return nil, nil
 	}
 
 	// Ensure the node group would have the capacity to scale
 	if scalableResource.MaxSize()-scalableResource.MinSize() < 1 {
+		klog.V(4).Infof("result of 'scalableResource.MaxSize()-scalableResource.MinSize()' was less than 1 for %v", unstructuredScalableResource.GetName())
 		return nil, nil
 	}
 

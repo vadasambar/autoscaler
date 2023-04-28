@@ -560,17 +560,23 @@ func (c *machineController) nodeGroupForNode(node *corev1.Node) (*nodegroup, err
 		return nil, err
 	}
 	if scalableResource == nil {
+		klog.V(4).Info("scalableResource for provider ID %v and node %v was nil", node.Spec.ProviderID, node.GetName())
 		return nil, nil
 	}
+
+	klog.V(4).Infof("scalableResource was found: %v", *scalableResource)
 
 	nodegroup, err := newNodeGroupFromScalableResource(c, scalableResource)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build nodegroup for node %q: %v", node.Name, err)
 	}
 
+	klog.V(4).Infof("nodegroup was found: %v", *nodegroup)
+
 	// the nodegroup will be nil if it doesn't match the autodiscovery configuration
 	// or if it doesn't meet the scaling requirements
 	if nodegroup == nil {
+		klog.V(4).Info("nodegroup for scalabelResource %v provider ID %v and node %v was nil", scalableResource.GetName(), node.Spec.ProviderID, node.GetName())
 		return nil, nil
 	}
 
